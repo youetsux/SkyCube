@@ -1,6 +1,10 @@
 #include "SkyRenderer.h"
 #include "Engine/Direct3D.h"
 #include <d3dcompiler.h>
+#include "Engine/Camera.h"
+#include <cstring>
+
+#pragma comment(lib, "d3dcompiler.lib")
 
 SkyRenderer::SkyRenderer()
 	:pVertexShader_(nullptr),
@@ -27,7 +31,7 @@ HRESULT SkyRenderer::Initialize()
 
     if (FAILED(hr))
     {
-        MessageBox(nullptr, L"Skyé ‚ç‚¹ã‚·ã‚§ãƒ¼ãƒ€ãƒ¼ã®ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã«å¤±æ•—ã—ã¾ã—ãŸ", L"ã‚¨ãƒ©ãƒ¼", MB_OK);
+        MessageBox(nullptr, L"Sky’¸“_ƒVƒF[ƒ_[‚ÌƒRƒ“ƒpƒCƒ‹‚ÉŽ¸”s‚µ‚Ü‚µ‚½", L"ƒGƒ‰[", MB_OK);
         return hr;
     }
 
@@ -38,7 +42,7 @@ HRESULT SkyRenderer::Initialize()
 
     if (FAILED(hr))
     {
-        MessageBox(nullptr, L"Skyãƒ”ã‚¯ã‚»ãƒ«ã‚·ã‚§ãƒ¼ãƒ€ãƒ¼ã®ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã«å¤±æ•—ã—ã¾ã—ãŸ", L"ã‚¨ãƒ©ãƒ¼", MB_OK);
+        MessageBox(nullptr, L"SkyƒsƒNƒZƒ‹ƒVƒF[ƒ_[‚ÌƒRƒ“ƒpƒCƒ‹‚ÉŽ¸”s‚µ‚Ü‚µ‚½", L"ƒGƒ‰[", MB_OK);
         SAFE_RELEASE(pCompileVS);
         return hr;
     }
@@ -65,19 +69,56 @@ HRESULT SkyRenderer::Initialize()
     SAFE_RELEASE(pCompileVS);
     SAFE_RELEASE(pCompilePS);
 
+    // ƒJƒƒ‰‚©‚çu‰æ–Ê‚ÌŠeƒsƒNƒZƒ‹‚ª‚Ç‚¿‚ç‚ðŒü‚¢‚Ä‚¢‚é‚©v‚ð‹‚ß‚é‚½‚ß‚Ìs—ñ‚ð‘—‚éB
+    D3D11_BUFFER_DESC cbDesc = {};
+    cbDesc.ByteWidth = sizeof(SKY_CONSTANT_BUFFER);
+    cbDesc.Usage = D3D11_USAGE_DYNAMIC;
+    cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    hr = Direct3D::pDevice->CreateBuffer(&cbDesc, nullptr, &pConstantBuffer_);
+
     return hr;
 }
 
 void SkyRenderer::Draw()
 {
+    XMMATRIX proj = Camera::GetProjectionMatrix();
+    XMMATRIX view = Camera::GetViewMatrix();
+
+    XMVECTOR det;
+    XMMATRIX invProj = XMMatrixInverse(&det, proj);
+
+    // ‹ó‚ÍƒJƒƒ‰‚Æˆê‚ÉˆÚ“®‚µ‚Ä‚Ù‚µ‚¢B
+    // ‚»‚±‚Åƒrƒ…[s—ñ‚Ì•½sˆÚ“®‚¾‚¯‚ðÁ‚µA‰ñ“]‚¾‚¯Žc‚·B
+    XMMATRIX viewRot = view;
+    viewRot.r[3] = XMVectorSet(0, 0, 0, 1);
+    XMMATRIX invViewRot = XMMatrixInverse(&det, viewRot);
+
+    SKY_CONSTANT_BUFFER cb = {};
+    cb.invProj = invProj;
+    cb.invViewRot = invViewRot;
+
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+    HRESULT hr = Direct3D::pContext->Map(
+        pConstantBuffer_, 0,
+        D3D11_MAP_WRITE_DISCARD, 0,
+        &mapped);
+
+    if (SUCCEEDED(hr))
+    {
+        std::memcpy(mapped.pData, &cb, sizeof(cb));
+        Direct3D::pContext->Unmap(pConstantBuffer_, 0);
+    }
+
     Direct3D::pContext->VSSetShader(pVertexShader_, nullptr, 0);
     Direct3D::pContext->PSSetShader(pPixelShader_, nullptr, 0);
 
-    // SV_VertexID ã§é ‚ç‚¹ã‚’ä½œã‚‹ã®ã§ã€é ‚ç‚¹ãƒãƒƒãƒ•ã‚¡ã‚‚å…¥åŠ›ãƒ¬ã‚¤ã‚¢ã‚¦ãƒˆã‚‚ä½¿ã‚ãªã„ã€‚
+    // SV_VertexID ‚Å’¸“_‚ðì‚é‚Ì‚ÅA’¸“_ƒoƒbƒtƒ@‚à“ü—ÍƒŒƒCƒAƒEƒg‚àŽg‚í‚È‚¢B
     Direct3D::pContext->IASetInputLayout(nullptr);
     Direct3D::pContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // 3é ‚ç‚¹ã ã‘ã§ç”»é¢å…¨ä½“ã‚’è¦†ã†ä¸‰è§’å½¢ã‚’æãã€‚
+    Direct3D::pContext->VSSetConstantBuffers(0, 1, &pConstantBuffer_);
+    // 3’¸“_‚¾‚¯‚Å‰æ–Ê‘S‘Ì‚ð•¢‚¤ŽOŠpŒ`‚ð•`‚­B
     Direct3D::pContext->Draw(3, 0);
 }
 

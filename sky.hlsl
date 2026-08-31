@@ -1,8 +1,15 @@
-// é ‚ç‚¹ãƒãƒƒãƒ•ã‚¡ã‚’ä½¿ã‚ãšã€SV_VertexID ã ã‘ã§ç”»é¢å…¨ä½“ã‚’è¦†ã†ä¸‰è§’å½¢ã‚’ä½œã‚‹ã€‚
+// ’¸“_ƒoƒbƒtƒ@‚ğg‚í‚¸ASV_VertexID ‚¾‚¯‚Å‰æ–Ê‘S‘Ì‚ğ•¢‚¤OŠpŒ`‚ğì‚éB
+
+cbuffer SkyConstants : register(b0)
+{
+    row_major float4x4 invProj;
+    row_major float4x4 invViewRot;
+};
 
 struct VS_OUT
 {
     float4 pos : SV_POSITION;
+    float3 viewDir : TEXCOORD0;
 };
 
 VS_OUT VS(uint id : SV_VertexID)
@@ -10,20 +17,28 @@ VS_OUT VS(uint id : SV_VertexID)
     VS_OUT output;
 
     float2 uv = float2(0.0, 0.0);
-    if (id == 0)
-        uv = float2(0.0, 0.0);
-    else if (id == 1)
-        uv = float2(2.0, 0.0);
-    else if (id == 2)
-        uv = float2(0.0, 2.0);
-
-    // ã“ã®æ®µéšã§ã¯é€šå¸¸ã® LESS æ·±åº¦åˆ¤å®šã§ã‚‚é€šã‚‹ã‚ˆã†ã« z ã‚’å°‘ã—ã ã‘æ‰‹å‰ã¸ç½®ãã€‚
+    if (id == 0)    uv = float2(0.0, 0.0);
+    else if (id == 1)   uv = float2(2.0, 0.0);
+    else if (id == 2)   uv = float2(0.0, 2.0);
+    
+    // ‚±‚Ì’iŠK‚Å‚Í’Êí‚Ì LESS [“x”»’è‚Å‚à’Ê‚é‚æ‚¤‚É z ‚ğ­‚µ‚¾‚¯è‘O‚Ö’u‚­B
     output.pos = float4(uv * float2(2, -2) + float2(-1, 1), 0.999f, 1.0f);
+    
+    // ‰æ–Êã‚ÌˆÊ’u‚ğAƒrƒ…[‹óŠÔ‚ÌˆÊ’u‚Ö–ß‚·B
+    float4 viewPos = mul(float4(output.pos.xy, 1, 1), invProj);
+    viewPos.xyz /= viewPos.w;
+
+    // ƒrƒ…[‹óŠÔ‚Ì•ûŒü‚ğƒ[ƒ‹ƒh‹óŠÔ‚Ö–ß‚·B
+    // w=0 ‚È‚Ì‚ÅuˆÊ’uv‚Å‚Í‚È‚­u•ûŒüv‚Æ‚µ‚Ä•ÏŠ·‚³‚ê‚éB
+    output.viewDir = mul(float4(viewPos.xyz, 0), invViewRot).xyz;
+    
     return output;
 }
 
 float4 PS(VS_OUT input) : SV_Target
 {
-    // ã¾ãšã¯ã‚­ãƒ¥ãƒ¼ãƒ–ãƒãƒƒãƒ—ã‚’ä½¿ã‚ãšã€ç©ºã®æç”»çµŒè·¯ã ã‘ã‚’ç¢ºèªã™ã‚‹ã€‚
-    return float4(0.18f, 0.35f, 0.65f, 1.0f);
+    // ‚Ü‚¸‚ÍƒLƒ…[ƒuƒ}ƒbƒv‚ğg‚í‚¸A‹ó‚Ì•`‰æŒo˜H‚¾‚¯‚ğŠm”F‚·‚éB
+    float3 dir = normalize(input.viewDir);
+    return float4(abs(dir), 1.0f);
+    //return float4(0.18f, 0.35f, 0.65f, 1.0f);
 }
