@@ -11,7 +11,13 @@
 #include "imgui/imgui_impl_dx11.h"
 #include "imgui/imgui_impl_win32.h"
 
-
+namespace
+{
+    XMFLOAT3 SkyCamTarget = { 0.0f, 0.8f, 0.0f };
+    float SkyCamDistance = 3.0f;
+    float SkyCamYaw = 0.0f;
+    float SkyCamPitch = 20.0f;
+}
 
 Stage::Stage(GameObject* parent)
 	:GameObject(parent, "Stage"),  
@@ -21,7 +27,7 @@ Stage::Stage(GameObject* parent)
 	hRoom_ = -1;
 	hGround_ = -1;
 	hDonut_ = -1;
-	lightType_ = 0;  // „Éá„Éï„Ç©„É´„Éà: Âπ≥Ë°åÂÖâÊ∫ê
+	lightType_ = 0;  // ÉfÉtÉHÉãÉg: ïΩçsåıåπ
 
 	
 }
@@ -41,12 +47,12 @@ void Stage::InitConstantBuffer()
 	cb.MiscFlags = 0;
 	cb.StructureByteStride = 0;
 
-	// „Ç≥„É≥„Çπ„Çø„É≥„Éà„Éê„ÉÉ„Éï„Ç°„ÅÆ‰ΩúÊàê
+	// ÉRÉìÉXÉ^ÉìÉgÉoÉbÉtÉ@ÇÃçÏê¨
 	HRESULT hr;
 	hr = Direct3D::pDevice->CreateBuffer(&cb, nullptr, &pConstantBuffer_);
 	if (FAILED(hr))
 	{
-		MessageBox(NULL, L"„Ç≥„É≥„Çπ„Çø„É≥„Éà„Éê„ÉÉ„Éï„Ç°„ÅÆ‰ΩúÊàê„Å´Â§±Êïó„Åó„Åæ„Åó„Åü", L"„Ç®„É©„Éº", MB_OK);
+		MessageBox(NULL, L"ÉRÉìÉXÉ^ÉìÉgÉoÉbÉtÉ@ÇÃçÏê¨Ç…é∏îsÇµÇ‹ÇµÇΩ", L"ÉGÉâÅ[", MB_OK);
 	}
 }
 
@@ -68,15 +74,30 @@ void Stage::Initialize()
     HRESULT hr = sky_.Initialize();
     if (FAILED(hr))
     {
-        MessageBox(nullptr, L"Sky„ÅÆÂàùÊúüÂåñ„Å´Â§±Êïó„Åó„Åæ„Åó„Åü", L"„Ç®„É©„Éº", MB_OK);
+        MessageBox(nullptr, L"SkyÇÃèâä˙âªÇ…é∏îsÇµÇ‹ÇµÇΩ", L"ÉGÉâÅ[", MB_OK);
     }
+
+	SkyCamTarget = { 0.0f, 0.8f, 0.0f };
+	SkyCamDistance = 3.0f;
+	SkyCamYaw = 0.0f;
+	SkyCamPitch = 20.0f;
 }
 
 void Stage::Update()
 {
     transform_.rotate_.y += 0.5f;
 
-    // ========== ÁÇπÂÖâÊ∫ê„ÅÆÊìç‰ΩúÔºàÊó¢Â≠òÔºâ ==========
+    // ãÖñ ç¿ïWÇ©ÇÁÉJÉÅÉâà íuÇçÏÇÈÅB
+    float yawRad = XMConvertToRadians(SkyCamYaw);
+    float pitchRad = XMConvertToRadians(SkyCamPitch);
+
+    float x = SkyCamTarget.x + SkyCamDistance * cosf(pitchRad) * sinf(yawRad);
+    float y = SkyCamTarget.y + SkyCamDistance * sinf(pitchRad);
+    float z = SkyCamTarget.z + SkyCamDistance * cosf(pitchRad) * cosf(yawRad);
+    Camera::SetPosition(XMVectorSet(x, y, z, 0));
+    Camera::SetTarget(XMVectorSet(SkyCamTarget.x, SkyCamTarget.y, SkyCamTarget.z, 0));
+
+    // ========== ì_åıåπÇÃëÄçÏÅiä˘ë∂Åj ==========
     if (Input::IsKey(DIK_A))
     {
         XMFLOAT4 p = Direct3D::GetLightPos();
@@ -116,7 +137,7 @@ void Stage::Update()
 
 
 
-    // „Ç≥„É≥„Çπ„Çø„É≥„Éà„Éê„ÉÉ„Éï„Ç°„ÅÆË®≠ÂÆö„Å®„ÄÅ„Ç∑„Çß„Éº„ÉÄ„Éº„Å∏„ÅÆ„Ç≥„É≥„Çπ„Çø„É≥„Éà„Éê„ÉÉ„Éï„Ç°„ÅÆ„Çª„ÉÉ„Éà
+    // ÉRÉìÉXÉ^ÉìÉgÉoÉbÉtÉ@ÇÃê›íËÇ∆ÅAÉVÉFÅ[É_Å[Ç÷ÇÃÉRÉìÉXÉ^ÉìÉgÉoÉbÉtÉ@ÇÃÉZÉbÉg
     CONSTANTBUFFER_STAGE cb;
     cb.lightPosition = Direct3D::GetLightPos();
     XMStoreFloat4(&cb.eyePosition, Camera::GetPosition());
@@ -129,9 +150,9 @@ void Stage::Update()
     memcpy_s(pdata.pData, pdata.RowPitch, (void*)(&cb), sizeof(cb));
     Direct3D::pContext->Unmap(pConstantBuffer_, 0);
 
-    // „Ç≥„É≥„Çπ„Çø„É≥„Éà„Éê„ÉÉ„Éï„Ç°
-    Direct3D::pContext->VSSetConstantBuffers(1, 1, &pConstantBuffer_);  // È†ÇÁÇπ„Ç∑„Çß„Éº„ÉÄ„ÉºÁî®
-    Direct3D::pContext->PSSetConstantBuffers(1, 1, &pConstantBuffer_);  // „Éî„ÇØ„Çª„É´„Ç∑„Çß„Éº„ÉÄ„ÉºÁî®
+    // ÉRÉìÉXÉ^ÉìÉgÉoÉbÉtÉ@
+    Direct3D::pContext->VSSetConstantBuffers(1, 1, &pConstantBuffer_);  // í∏ì_ÉVÉFÅ[É_Å[óp
+    Direct3D::pContext->PSSetConstantBuffers(1, 1, &pConstantBuffer_);  // ÉsÉNÉZÉãÉVÉFÅ[É_Å[óp
 }
 
 void Stage::Draw()
@@ -159,8 +180,23 @@ void Stage::Draw()
     Model::SetTransform(hDonut_, tDonut);
     Model::Draw(hDonut_);
 
-    // ========== ImGui „Åß„É©„Ç§„ÉàÊÉÖÂ†±„ÇíË°®Á§∫ =========
-    ImGui::Text("Stage Class rot: %lf", tDonut.rotate_.z);
+    // ========== ImGui Ç≈ÉâÉCÉgèÓïÒÇï\é¶ =========
+    ImGui::Begin("Camera Control");
+    ImGui::Text("=== Orbit Camera ===");
+    ImGui::SliderFloat("Yaw (Horizontal)", &SkyCamYaw, -180.0f, 180.0f);
+    ImGui::SliderFloat("Pitch (Vertical)", &SkyCamPitch, -89.0f, 89.0f);
+    ImGui::SliderFloat("Distance", &SkyCamDistance, 0.5f, 10.0f);
+    ImGui::Separator();
+    ImGui::DragFloat3("Target Position", &SkyCamTarget.x, 0.01f);
+
+    if (ImGui::Button("Reset Camera"))
+    {
+        SkyCamTarget = { 0.0f, 0.8f, 0.0f };
+        SkyCamDistance = 3.0f;
+        SkyCamYaw = 0.0f;
+        SkyCamPitch = 20.0f;
+    }
+    ImGui::End();
 
     ImGui::Separator();
     ImGui::Text("=== Light Type ===");
@@ -186,23 +222,6 @@ void Stage::Draw()
         ImGui::Text("  X: %.2f, Y: %.2f, Z: %.2f", pointLight.x, pointLight.y, pointLight.z);
         ImGui::Text("  Control: WASD + Up/Down");
     }
-
-    ImGui::Separator();
-
-    // ========== Step1 „Éá„Éê„ÉÉ„Ç∞Ôºö„É©„Ç§„ÉàË°åÂàó„ÇíË°®Á§∫ ==========
-    if (ImGui::CollapsingHeader("Light Matrix Debug"))
-    {
-        XMMATRIX V  = Direct3D::GetLightViewMatrix();
-        XMMATRIX P  = Direct3D::GetLightProjectionMatrix();
-        XMMATRIX VP = V * P;
-
-        ImGui::Text("-- LightView --");
-        ImGui::Text("[0]: %.2f %.2f %.2f %.2f", V.r[0].m128_f32[0], V.r[0].m128_f32[1], V.r[0].m128_f32[2], V.r[0].m128_f32[3]);
-        ImGui::Text("[1]: %.2f %.2f %.2f %.2f", V.r[1].m128_f32[0], V.r[1].m128_f32[1], V.r[1].m128_f32[2], V.r[1].m128_f32[3]);
-        ImGui::Text("[2]: %.2f %.2f %.2f %.2f", V.r[2].m128_f32[0], V.r[2].m128_f32[1], V.r[2].m128_f32[2], V.r[2].m128_f32[3]);
-        ImGui::Text("[3]: %.2f %.2f %.2f %.2f", V.r[3].m128_f32[0], V.r[3].m128_f32[1], V.r[3].m128_f32[2], V.r[3].m128_f32[3]);
-    }
-    // ========== Step1 „Éá„Éê„ÉÉ„Ç∞ END ==========
 
 }
 void Stage::Release()
